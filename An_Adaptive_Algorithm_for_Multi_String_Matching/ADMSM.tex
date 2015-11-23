@@ -1,0 +1,39 @@
+\documentclass{article}
+
+\usepackage{graphics}
+\usepackage{graphicx}
+\usepackage{algorithmic,algorithm}
+\usepackage{color}
+\usepackage{amsthm}
+\usepackage{enumerate}
+\newtheorem{mydef}{Definition}
+\newtheorem{mylm}{Proposition}
+
+\section{The ADMSM Algorithm}
+\label{sec:am}
+
+The whole ADMSM algorithm consists of two stages: the preprocessing
+stage and the matching stage. In the preprocessing stage, the whole
+pattern set is compressed into a compact data structure called
+\emph{adaptive match tree} (\emph{AMT}), in which each tree node has
+its own structure. Then in the matching stage, the algorithm uses the
+\emph{AMT} to match against the text string one character at a time,
+and output the matching result once there is a match.
+
+\subsection{Building the adaptive match tree}
+\label{sec:pp}
+
+In the preprocessing stage, the pattern set will be transformed to a
+\emph{AMT}. As we will see later, each node in \emph{AMT} can have its
+own structure according to the characteristic of the pattern set, and
+this means the \emph{AMT} can . The
+\emph{AMT} is constructed by recursively cutting and grouping the
+prefixes of the patterns.  Firstly, the length of the shortest pattern
+in the pattern set is computed
+
+
+
+\subsection{Matching the text}
+\label{sec:mp}
+
+\end{document}
