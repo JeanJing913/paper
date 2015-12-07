@@ -1,39 +1,158 @@
-\documentclass{article}
+\documentclass[a4paper]{article}
 
-\usepackage{graphics}
-\usepackage{graphicx}
-\usepackage{algorithmic,algorithm}
-\usepackage{color}
-\usepackage{amsthm}
-\usepackage{enumerate}
-\newtheorem{mydef}{Definition}
-\newtheorem{mylm}{Proposition}
+\usepackage{tikz}
+
+\begin{document}
 
 \section{The ADMSM Algorithm}
 \label{sec:am}
 
 The whole ADMSM algorithm consists of two stages: the preprocessing
 stage and the matching stage. In the preprocessing stage, the whole
-pattern set is compressed into a compact data structure called
-\emph{adaptive match tree} (\emph{AMT}), in which each tree node has
-its own structure. Then in the matching stage, the algorithm uses the
-\emph{AMT} to match against the text string one character at a time,
-and output the matching result once there is a match.
+pattern set is transformed to a compact data structure called
+\emph{Adaptive Match Tree} (\emph{AMT}), in which each tree node has
+its own structure. Then in the matching stage, the \emph{AMT} is used
+to match against the text string one character position each time, and
+output the patterns once there is a match.
 
-\subsection{Building the adaptive match tree}
+\subsection{Building the \emph{AMT}}
 \label{sec:pp}
 
-In the preprocessing stage, the pattern set will be transformed to a
-\emph{AMT}. As we will see later, each node in \emph{AMT} can have its
-own structure according to the characteristic of the pattern set, and
-this means the \emph{AMT} can . The
-\emph{AMT} is constructed by recursively cutting and grouping the
-prefixes of the patterns.  Firstly, the length of the shortest pattern
-in the pattern set is computed
+% The key point of compacting the prefixes is that for the prefixes
+% which are the same only \emph{one} copy is retained in the root.
+
+In the preprocessing stage, the whole pattern set will be transformed
+to an \emph{AMT}. This transformation includes four major steps:
+
+\begin{enumerate}
+\item The \emph{lsp} of the pattern set is computed, and all the
+length-\emph{lsp} prefixes of the patterns in the pattern set are cut
+off and collected to form a prefix set with the repetitions removed at
+the same time.
+\item Create a tree node to hold the prefixes in the prefix set as
+\emph{keys}. The inner data structure of the tree node is selected
+adaptively based on the characteristic of the prefix set.
+\item Divide the pattern set left from step 1 into sub-pattern-sets:
+the patterns with the same length-\emph{lsp} prefix lost are grouped
+together to form a sub-pattern-set. Associate each sub-pattern-set
+with the corresponding prefix key in the tree node created in step 2.
+\item For each newly created sub-pattern-set in step 3, repeat the
+same procedure from step 1.
+\end{enumerate}
+
+As an example, given $P = \{p_1, p_2, \dots, p_{13}\}$ that will be
+transformed to \emph{AMT}.  First, since $p_6$ is the shortest pattern
+in $P$, $\emph{lsp} = |p_6| = 2$. Then the length-2 prefix of each
+pattern is cut off, and these prefixes formed a prefix set: $prefixes
+= \{p_1^{(1,2)} = aa, p_2^{(1,2)} = aa, \ \dots, \ p_{13}^{(1,2)} =
+cc\}$.  After removing the repetitions in \emph{prefixes}, there left
+only 3 distinct prefixes: $prefixes = \{aa, bb, cc\}$, thus
+$\emph{ndp} = |prefixes| = 3$.
+
+Then a tree node (actually the root of the \emph{AMT}) is built to
+hold the three prefixes in the \emph{prefixes} set. As we will see
+later, once a tree node is being built its inner data structure can be
+selected adaptively according to the characteristic of the set
+\emph{prefixes} on which this tree node is based. And each prefix in
+the node is a \emph{key} and connected to the child tree node. In
+order to record the various type of the data structure in the tree
+nodes, each tree node is linked by an little affiliated structure
+called \emph{expand node}(\emph{e-node} for short). Each e-node
+contains two fields: a \emph{type} field which labels the type of the
+data structure in the tree node and a \emph{child} field which is a
+pointer points to the tree node self.
+
+After creation of the root, the patterns left are divided into
+sub-pattern-sets based on the length-2 prefixes which have been cut
+off: the patterns with the same length-2 prefixes lost are grouped
+together to form a sub-pattern-set. We use the notation $p_n^{-m}$ to
+denote the pattern $p_n$ that has its length-$m$ prefix cut off. After
+grouping, three sub-pattern-sets: $SP_1 = \{p_1^{-2}, p_2^{-2},
+p_3^{-2}, p_4^{-2}, p_5^{-2}, p_7^{-2}\}$, $SP_2 = \{p_8^{-2},
+p_9^{-2}, p_{10}^{-2}\}$ and $SP_3 = \{p_{11}^{-2}, p_{12}^{-2},
+p_{13}^{-2}\}$ are created. These three sub-pattern-sets are then
+associated with their corresponding prefix key \emph{aa}, \emph{bb}
+and \emph{cc} respectively in the root. Note that the shortest pattern
+$p_6$ has disappeared in the sub-pattern-sets, since after cutting the
+length-2 prefix of $p_6$ only the empty string left.
+
+The same procedure is repeated for each of the three
+sub-pattern-sets. As a further example, the $SP_1$ is processed. Since
+$p_7^{-2}$ is the shortest pattern in $SP_1$, $\emph{lsp} = |p_7^{-2}|
+= 6$. Then the length-$6$ prefix of each pattern in $SP_1$ is cut off
+to form $prefixes = \{p_1^{(3,8)}, p_2^{(3,8)}, p_3^{(3,8)},
+p_4^{(3,8)}, p_5^{(3,8)}, p_7^{(3,8)}\}$. After discarding the
+duplicates, only three distinct prefixes left: $prefixes = \{a^6, e^6,
+b^6\}$ (we use $c^n$ to denote that the character \emph{c} appears $n$
+times).  A new tree node $t_1$ is built adaptively based on
+\emph{prefixes} to hold its prefixes as keys, and then $t_1$ is
+connect to the key \emph{aa} of the root. Again the patterns left in
+$SP_1$ are grouped based on their lost length-6 prefixes, which formed
+another three sub-pattern-sets $SP_4 = \{p_1^{-8}\}$, $SP_5 =
+\{p_2^{-8}, p_3^{-8}, p_4^{-8}\}$ and $SP_6 = \{p_5^{-8}\}$
+corresponding to $a^6$, $e^6$ and $b^6$ respectively. These three
+sub-pattern-sets are then associated with the keys in $t_1$.
+ 
+which is the first child of the root.
+
+Note that, in the construction of \emph{AMT}, we use a
+\emph{breadth-first} strategy to process sub-pattern-sets and create
+tree nodes(which means the next sub-pattern-set to be processed is
+$SP_2$ rather than $SP_7$). In order to trace the order in which the
+sub-pattern-sets are processed, a \emph{first-in-first-out} queue is
+employed to hold the sub-pattern-sets: the \emph{head} of queue is 
+the sub-pattern-set that will be processed immediately and the newly
+created sub-pattern-sets are inserted to the \emph{tail} of the queue
+in order. In our example, the whole pattern set $P$ is inserted into
+the queue firstly, then $P$ is processed and the three created
+sub-pattern-set $SP_1$, $SP_2$ and $SP_3$ are inserted to the queue in
+order. Next we process $SP_1$ and insert $SP_4$, $SP_5$ and
+$SP_6$. Subsequently, $SP_2$, $SP_3$, $SP_4$, $SP_5$, $SP_6$, \dots
+will be processed in sequence. Once there are no sub-pattern-set left
+in the queue, the whole \emph{AMT} is constructed.
+
+\textbf{Algorithm.}
+Input: the pattern set $PS$\\
+Output: the AMT\\
+Algorithm:\\
+
+1. Create an e-node \emph{root}, and let $root.child \leftarrow PS$.\\
+1. Create an empty queue $Q$ of e-nodes, and $push\_queue(Q, root)$.\\
+
+3. \textbf{while} $Q$ is not empty\\
+    $e \leftarrow pop\_queue(Q)$, $pat\_set \leftarrow e.child$\\
+    $lsp \leftarrow |p_{st}}|$, where $p_{st}}$ is the shortest pattern in $pat\_set$\\
+    $prefixes \leftarrow \{p_i^{(j+1,j+lsp)} \mid p_i^{-j} \in pat\_set\}$, $pat\_set \leftarrow \{p_i^{-(j+lsp)} \mid p_i^{-j} \in pat\_set\}$\\
+    Remove the repetitions in $prefixes$, and let $ndp \leftarrow |prefixes|$\\
+    $t \leftarrow create\_tree\_node(prefixes, lsp, ndp)$, $e.child \leftarrow t$\\
+    $sub\_pat\_sets \leftarrow \{sp_i \mid sp_i \subseteq pat\_set$ \emph{and}
+    $\forall \ p_l^{-(j+lsp)}, p_k^{-(j+lsp)} \in sp_i$: $p_l^{(j+1,j+lsp)} = p_k^{(j+1,j+lsp)}\}$\\
+    \textbf{For} each $sp_i \in sub\_pat\_sets$\\
+        $pf \leftarrow p_k^{(j+1,j+lsp)}}$, where $p_k^{-(j+lsp)} \in sp_i$\\ 
+        $e \leftarrow$ the e-node of $pf$ in $t$\\
+        $e.child \leftarrow sp_i$\\
+        $push\_queue(Q, e)$
+
+   return root.
+
+\begin{tikzpicture}[scale=1.8]
+%\clip[draw] (0,0) circle [radius=0.5cm];
+\draw[ultra thin,red] (0,0) circle [ radius=1cm];
+\draw (-1.5,0)--(1.5,0);
+\draw (0,-1.5)--(0,1.5);
+\draw[rotate=45] (0,0) rectangle (0.5,0.5);
+\draw (0,0) rectangle (1,1);
+\draw (-1,-1) rectangle (-0.5,-0.5);
+\draw (3mm,0mm) arc [start angle=45, end angle=110, radius=3mm];
+\end{tikzpicture}
 
 
 
 \subsection{Matching the text}
 \label{sec:mp}
 
+
+
 \end{document}
+
+%  LocalWords:  aa
