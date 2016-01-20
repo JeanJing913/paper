@@ -1,158 +1,816 @@
-\documentclass[a4paper]{article}
+\documentclass[legalpaper]{article}
 
+\synctex=1 
 \usepackage{tikz}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{multirow}
+\usepackage{amsmath}
+
+\newcommand{\SWITCH}[1]{\STATE \textbf{switch} (#1)}  
+\newcommand{\ENDSWITCH}{\STATE \textbf{end switch}}  
+\newcommand{\CASE}[1]{\STATE \textbf{case} #1\textbf{:} \begin{ALC@g}}  
+\newcommand{\ENDCASE}{\end{ALC@g}}  
+\newcommand{\CASELINE}[1]{\STATE \textbf{case} #1\textbf{:} }  
+\newcommand{\DEFAULT}{\STATE \textbf{default:} \begin{ALC@g}}  
+\newcommand{\ENDDEFAULT}{\end{ALC@g}}  
+\newcommand{\DEFAULTLINE}[1]{\STATE \textbf{default:} }
+\newtheorem{mydef}{Definition}
+\newtheorem{mylm}{Proposition}
+
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+
+% \title{An Efficient Adaptive Algorithm for Dictionary Matching}
+% \author{Peng Zhan \and Wang Yuping}
+% \data{}
+% \maketitle
 
 \begin{document}
+\section{Preliminaries}
+\label{sec:stucture}
+
+Let $\Sigma$ be an \emph{alphabet} consists of a finite number of
+character symbols. (In this paper we will mainly focus on the case
+that $\Sigma$ is the ASCII character set, where $|\Sigma| = 256$ and
+each character requires only one byte of memory.) Given the alphabet
+$\Sigma$, a \emph{string} as well as its \emph{substring} over
+$\Sigma$ can be defined as:
+
+\begin{mydef} A string $T$ over $\Sigma$ is a sequence consisting of a
+finite number of characters from $\Sigma$. Particularly, a string of
+length $n$ over $\Sigma$ is denoted by $T = t_0t_1..t_{n-1}$, where
+$T[i] = t_i \in \Sigma$ $(0 \leq i \leq n-1)$. A substring of $T$ is a
+sequence consists of any consecutive characters of $T$. A substring of
+$T$ which is starting at position $i$ and ending at position $j$ is
+denoted by $T[i,j]$.
+\end{mydef}
+
+The basic concepts in suffixes sorting are the \emph{suffixes} and
+\emph{prefixes}, which are special substrings of a given string:
+
+\begin{mydef} For a string $T = t_0t_1..t_{n-1}$, the suffix of T that
+starts at position $i(0 \leq i \leq n-1)$ is $T[i,n-1]$, which is
+denoted by $S_i(T)$. The length-h prefix of $T$ is $T[0,h-1]$, and is
+denoted by $P_h(T)$.
+\end{mydef}
+
+In this paper, whenever we refer to some suffixes, they are related to
+the \emph{same} string, so the notation $S_i(T)$ can be abbreviated to
+$S_i$ without ambiguity. To ensure that no suffix is a prefix of
+another suffix, a special terminal character '\$' is always appended
+to the rear of $T$, and '\$' is defined to be smaller than any
+character in $\Sigma$.
+
+We use the notation $S_i \prec S_j$ to denote that $S_i$ is
+\emph{lexicographically smaller} than $S_j$. And our ultimate goal is
+to sort all the suffixes of a string in ascending lexicographical
+order to form a \emph{suffix array}:
+
+\begin{mydef}
+For a string $T = t_0t_1..t_{n-1}\$$, the suffix array of $T$ is an
+array $SA[0 \dots n]$ consisting of a permutation of the integers $0,
+1, \dots, n$ such that for all $0 \leq i < j \leq n$, $S_{SA[i]} \prec
+S_{SA[j]}$ where $SA[i]$ is the i-th element of the array SA.
+\end{mydef}
+
+Since a suffix can be uniquely determined by its starting position,
+only the starting position numbers of the suffix are stored in SA.
+
+For simplicity, the term \emph{order} (of suffixes) is used to
+indicate the \emph{lexicographical order} unless explicitly stated. By
+contrast, we can also define the \emph{h-order} of suffixes by just
+comparing their first $h$ characters: $S_i$ is said to be
+\emph{h-smaller} than $S_j$ if and only if $P_h(S_i) \prec P_h(S_j)$,
+and this relation is denoted by $S_i \prec_h S_j$.  The notations
+$=_h$ and $\preceq_h$ can be defined in a similar way.  Obviously,
+there is: $S_i \prec_h S_j \Longrightarrow S_i \prec S_j$. If all the
+suffixes are sorted according to their first $h$ characters, they are
+called \emph{in h-order}.
 
 \section{The ADMSM Algorithm}
-\label{sec:am}
+\label{sec:ADSM}
 
-The whole ADMSM algorithm consists of two stages: the preprocessing
-stage and the matching stage. In the preprocessing stage, the whole
-pattern set is transformed to a compact data structure called
-\emph{Adaptive Match Tree} (\emph{AMT}), in which each tree node has
-its own structure. Then in the matching stage, the \emph{AMT} is used
-to match against the text string one character position each time, and
-output the patterns once there is a match.
+The running process of the ADMSM algorithm consists of two main
+stages: the preprocessing stage and the matching stage. In the
+preprocessing stage, the whole pattern set is transformed to a compact
+tree-like structure called \textsf{Adaptive Match Tree}
+(\textsf{AMT}), where each node in the tree is built adaptively. While
+in the matching stage, the built \textsf{AMT} is compared against the
+text string to search patterns in that string.  The transformation of
+the pattern set to the \textsf{AMT} is introduced in Section
+\ref{subsec:preprocessing}, while using the \textsf{AMT} to search
+patterns in the text string is stated in Section
+\ref{subsec:matching}, and finally the various kinds of tree node
+structures are explored in Section \ref{subsec:nodes}.
 
-\subsection{Building the \emph{AMT}}
-\label{sec:pp}
-
-% The key point of compacting the prefixes is that for the prefixes
-% which are the same only \emph{one} copy is retained in the root.
+\subsection{Building the AMT}
+\label{subsec:preprocessing}
 
 In the preprocessing stage, the whole pattern set will be transformed
-to an \emph{AMT}. This transformation includes four major steps:
+to an \textsf{AMT}. This transformation includes four major steps:
 
 \begin{enumerate}
-\item The \emph{lsp} of the pattern set is computed, and all the
-length-\emph{lsp} prefixes of the patterns in the pattern set are cut
-off and collected to form a prefix set with the repetitions removed at
-the same time.
-\item Create a tree node to hold the prefixes in the prefix set as
-\emph{keys}. The inner data structure of the tree node is selected
-adaptively based on the characteristic of the prefix set.
+\item The $lsp$ of the pattern set is computed first, and then all the
+length-$lsp$ prefixes of the patterns in the pattern set are cut off
+to form a prefix set with the repetitions removed.
+\item Create an index structure (actually a tree node) to hold the
+prefixes in the prefix set. Each prefix serves as a key in the index
+structure. The type of the index structure is selected adaptively
+based on the characteristic of the prefix set.
 \item Divide the pattern set left from step 1 into sub-pattern-sets:
-the patterns with the same length-\emph{lsp} prefix lost are grouped
-together to form a sub-pattern-set. Associate each sub-pattern-set
-with the corresponding prefix key in the tree node created in step 2.
+the patterns with the same length-$lsp$ prefix cutting off are grouped
+together to form a sub-pattern-set. Associate each sub-pattern-set with
+the corresponding prefix key in the tree node created in step 2.
 \item For each newly created sub-pattern-set in step 3, repeat the
 same procedure from step 1.
 \end{enumerate}
 
-As an example, given $P = \{p_1, p_2, \dots, p_{13}\}$ that will be
-transformed to \emph{AMT}.  First, since $p_6$ is the shortest pattern
-in $P$, $\emph{lsp} = |p_6| = 2$. Then the length-2 prefix of each
-pattern is cut off, and these prefixes formed a prefix set: $prefixes
-= \{p_1^{(1,2)} = aa, p_2^{(1,2)} = aa, \ \dots, \ p_{13}^{(1,2)} =
-cc\}$.  After removing the repetitions in \emph{prefixes}, there left
-only 3 distinct prefixes: $prefixes = \{aa, bb, cc\}$, thus
-$\emph{ndp} = |prefixes| = 3$.
+\begin{figure}[htbp]
+  \label{fig:AMT}
+  \centering
+  \includegraphics[width=\textwidth]{./eps/AMT}
+  \caption{Building the AMT from a pattern set.}
+\end{figure}
 
-Then a tree node (actually the root of the \emph{AMT}) is built to
-hold the three prefixes in the \emph{prefixes} set. As we will see
-later, once a tree node is being built its inner data structure can be
-selected adaptively according to the characteristic of the set
-\emph{prefixes} on which this tree node is based. And each prefix in
-the node is a \emph{key} and connected to the child tree node. In
-order to record the various type of the data structure in the tree
-nodes, each tree node is linked by an little affiliated structure
-called \emph{expand node}(\emph{e-node} for short). Each e-node
-contains two fields: a \emph{type} field which labels the type of the
-data structure in the tree node and a \emph{child} field which is a
-pointer points to the tree node self.
+Figure \ref{fig:AMT} shows an example of this transformation. Given a
+pattern set $P = \{p_1,\, p_2,\, \dots,\, p_{13}\}$ which will be
+transformed to an \textsf{AMT}.  First, since $p_6$ is the shortest
+pattern in $P$, we have $lsp = |p_6| = 2$. Then the length-2 prefix of
+each pattern is cut off to form a prefix set: $PF = \{p_1^{+2} = aa,\;
+p_2^{+2} = aa,\; \dots,\; p_{13}^{+2} = cc\}$.  After removing the
+repetitions in $PF$, only 3 distinct prefixes are left: $PF = \{aa,\,
+bb,\, cc\}$, and hence $ndp = |PF| = 3$.
 
-After creation of the root, the patterns left are divided into
-sub-pattern-sets based on the length-2 prefixes which have been cut
-off: the patterns with the same length-2 prefixes lost are grouped
-together to form a sub-pattern-set. We use the notation $p_n^{-m}$ to
-denote the pattern $p_n$ that has its length-$m$ prefix cut off. After
-grouping, three sub-pattern-sets: $SP_1 = \{p_1^{-2}, p_2^{-2},
-p_3^{-2}, p_4^{-2}, p_5^{-2}, p_7^{-2}\}$, $SP_2 = \{p_8^{-2},
-p_9^{-2}, p_{10}^{-2}\}$ and $SP_3 = \{p_{11}^{-2}, p_{12}^{-2},
-p_{13}^{-2}\}$ are created. These three sub-pattern-sets are then
-associated with their corresponding prefix key \emph{aa}, \emph{bb}
-and \emph{cc} respectively in the root. Note that the shortest pattern
-$p_6$ has disappeared in the sub-pattern-sets, since after cutting the
-length-2 prefix of $p_6$ only the empty string left.
+Then an index structure (actually the root of the \textsf{AMT}) is
+built based on $PF$ to hold its prefixes. Each prefix serves as a
+\textsf{key} in the index structure and may have a branch to the child
+node. As will be seen later, the type of the index structure is
+selected adaptively according to the characteristic of $PF$.
 
-The same procedure is repeated for each of the three
-sub-pattern-sets. As a further example, the $SP_1$ is processed. Since
-$p_7^{-2}$ is the shortest pattern in $SP_1$, $\emph{lsp} = |p_7^{-2}|
-= 6$. Then the length-$6$ prefix of each pattern in $SP_1$ is cut off
-to form $prefixes = \{p_1^{(3,8)}, p_2^{(3,8)}, p_3^{(3,8)},
-p_4^{(3,8)}, p_5^{(3,8)}, p_7^{(3,8)}\}$. After discarding the
-duplicates, only three distinct prefixes left: $prefixes = \{a^6, e^6,
-b^6\}$ (we use $c^n$ to denote that the character \emph{c} appears $n$
-times).  A new tree node $t_1$ is built adaptively based on
-\emph{prefixes} to hold its prefixes as keys, and then $t_1$ is
-connect to the key \emph{aa} of the root. Again the patterns left in
-$SP_1$ are grouped based on their lost length-6 prefixes, which formed
-another three sub-pattern-sets $SP_4 = \{p_1^{-8}\}$, $SP_5 =
-\{p_2^{-8}, p_3^{-8}, p_4^{-8}\}$ and $SP_6 = \{p_5^{-8}\}$
-corresponding to $a^6$, $e^6$ and $b^6$ respectively. These three
-sub-pattern-sets are then associated with the keys in $t_1$.
- 
-which is the first child of the root.
+% % We use the notation $p_n^{-m}$ to denote the pattern $p_n$ that has
+% % its length-$m$ prefix cut off
+% While the $key$ component is not just the
+% solely prefix string, but the corresponding (partial) structure in the
+% node that hold that prefix as a key (which means the $key$ is ``node
+% related''). 
 
-Note that, in the construction of \emph{AMT}, we use a
-\emph{breadth-first} strategy to process sub-pattern-sets and create
-tree nodes(which means the next sub-pattern-set to be processed is
-$SP_2$ rather than $SP_7$). In order to trace the order in which the
-sub-pattern-sets are processed, a \emph{first-in-first-out} queue is
-employed to hold the sub-pattern-sets: the \emph{head} of queue is 
-the sub-pattern-set that will be processed immediately and the newly
-created sub-pattern-sets are inserted to the \emph{tail} of the queue
-in order. In our example, the whole pattern set $P$ is inserted into
-the queue firstly, then $P$ is processed and the three created
-sub-pattern-set $SP_1$, $SP_2$ and $SP_3$ are inserted to the queue in
-order. Next we process $SP_1$ and insert $SP_4$, $SP_5$ and
-$SP_6$. Subsequently, $SP_2$, $SP_3$, $SP_4$, $SP_5$, $SP_6$, \dots
-will be processed in sequence. Once there are no sub-pattern-set left
-in the queue, the whole \emph{AMT} is constructed.
+After creation of the root, the patterns left in $P$ that have their
+length-2 prefixes cut off are divided into sub-pattern-sets: the
+patterns with the same length-2 prefixes lost are grouped together to
+form a sub-pattern-set. In order to reveal the correspondence between
+the sub-pattern-set and its lost prefix, the tuple $(node.key,\;
+sub\;pattern\;set)$ is used: the patterns in the $sub$-$pattern$-$set$
+have the same prefix $key$ cut off which is held as a key in the newly
+created $node$. Using this tuple notation, three tuples are formed
+after dividing $P$: $tp_1 = (root.aa,\; SP_1=\{p_1^{-2},\, p_2^{-2},\,
+p_3^{-2},\, p_4^{-2},\, p_5^{-2},\, p_7^{-2}\})$,\, $tp_2 =
+(root.bb,\; SP_2=\{p_8^{-2},\, p_9^{-2},\, p_{10}^{-2}\})$ and $tp_3 =
+(root.cc,\; SP_3=\{p_{11}^{-2},\, p_{12}^{-2},\, p_{13}^{-2}\})$,
+which means the pattern set $P$ is divided into three
+sub-pattern-sets: $SP_1$, $SP_2$, $SP_3$, and each corresponds to a
+prefix key held in the root (it also means that the root will have
+three child nodes).
 
-\textbf{Algorithm.}
-Input: the pattern set $PS$\\
-Output: the AMT\\
-Algorithm:\\
+Note that, the shortest pattern $p_6$ has disappeared in the
+sub-pattern-sets, since after cutting the length-2 prefix of $p_6$,
+there is nothing left. In order to mark the end of a pattern, once the
+last part of the pattern has been cut off, that part is marked with an
+asterisk to in the corresponding tree node. It can be seen that, any
+path from the root to a key that is marked as a pattern end represents
+a complete pattern. Therefore, the patterns are stored implicitly in
+the \textsf{AMT} and can be reconstructed from paths ended with an
+asterisk.
 
-1. Create an e-node \emph{root}, and let $root.child \leftarrow PS$.\\
-1. Create an empty queue $Q$ of e-nodes, and $push\_queue(Q, root)$.\\
+The same procedure is repeated on each of the sub-pattern-sets in the
+tuples. As a further example, $SP_1$ is processed. Since $lsp =
+|p_7^{-2}| = 6$, the length-$6$ prefix of each pattern in $SP_1$ is
+cut off to form \(PF_1 = \{(p_1^{-2})^{+6},\, (p_2^{-2})^{+6},\,
+(p_3^{-2})^{+6},\, (p_4^{-2})^{+6},\, (p_5^{-2})^{+6},\,
+(p_7^{-2})^{+6}\}\). After discarding the duplicates in $PF_1$, only
+three distinct prefixes are left: $PF_1 = \{a^6,\, e^6,\, b^6\}$ (we
+use $c^n$ to denote that the character \emph{c} appears $n$ times).  A
+new index structure $node_1$ is built adaptively based on $PF_1$ to
+hold its prefixes as keys, and then $node_1$ is connect to the key
+$aa$ in the root, which makes it to be the first child of the
+root. Again the patterns left in $SP_1$ are grouped based on their
+lost length-6 prefixes, which formed three new tuples: $tp_4 =
+(node_1.a^6,\; SP_4=\{p_1^{-8}\})$, $tp_5 = (node_1.e^6,\;
+SP_5=\{p_2^{-8},\, p_3^{-8},\, p_4^{-8}\})$ and $tp_6 = (node_1.b^6,\;
+SP_6=\{p_5^{-8}\})$.
 
-3. \textbf{while} $Q$ is not empty\\
-    $e \leftarrow pop\_queue(Q)$, $pat\_set \leftarrow e.child$\\
-    $lsp \leftarrow |p_{st}}|$, where $p_{st}}$ is the shortest pattern in $pat\_set$\\
-    $prefixes \leftarrow \{p_i^{(j+1,j+lsp)} \mid p_i^{-j} \in pat\_set\}$, $pat\_set \leftarrow \{p_i^{-(j+lsp)} \mid p_i^{-j} \in pat\_set\}$\\
-    Remove the repetitions in $prefixes$, and let $ndp \leftarrow |prefixes|$\\
-    $t \leftarrow create\_tree\_node(prefixes, lsp, ndp)$, $e.child \leftarrow t$\\
-    $sub\_pat\_sets \leftarrow \{sp_i \mid sp_i \subseteq pat\_set$ \emph{and}
-    $\forall \ p_l^{-(j+lsp)}, p_k^{-(j+lsp)} \in sp_i$: $p_l^{(j+1,j+lsp)} = p_k^{(j+1,j+lsp)}\}$\\
-    \textbf{For} each $sp_i \in sub\_pat\_sets$\\
-        $pf \leftarrow p_k^{(j+1,j+lsp)}}$, where $p_k^{-(j+lsp)} \in sp_i$\\ 
-        $e \leftarrow$ the e-node of $pf$ in $t$\\
-        $e.child \leftarrow sp_i$\\
-        $push\_queue(Q, e)$
+During the construction of \textsf{AMT}, a \textsf{breadth-first}
+strategy is used to process the sub-pattern-sets and create tree nodes
+(which means the next sub-pattern-set to be processed is $SP_2$ rather
+than $SP_4$). In order to trace the order in which the
+sub-pattern-sets are processed, a \textsf{first-in-first-out} queue is
+employed to maintain the tuples: the tuple at the beginning of the
+queue contains the sub-pattern-set that will be processed next, while
+the newly created tuples are inserted to the end of the queue in
+order. In our example, the root is built initially. Then $tp_1$,
+$tp_2$ and $tp_3$ are inserted to the queue. Next $SP_1$ is processed
+and the newly created tuples $tp_4$, $tp_5$ and $tp_6$ are inserted to
+the end of the queue in order. Subsequently, $SP_2$, $SP_3$, $SP_4$,
+$SP_5$, $SP_6$, $\dots$ are processed in sequence. Once there are no
+tuples left in the queue, the whole \textsf{AMT} is constructed.
 
-   return root.
+\begin{algorithm}
+  \caption{Building the Adaptive Match Tree}
+  \label{alg:amt}
+  \begin{algorithmic}[1]
+    \REQUIRE The pattern set $P$
+    \ENSURE The AMT
+    \STATE $Q \leftarrow$ Create an empty queue
+    \STATE $push\_queue((NULL,\,P),\; Q)$
+    \STATE
+    \WHILE{$Q \neq \emptyset$}
+    \STATE $(parent\_node.key,\; P) \leftarrow pop\_queue(Q)$
+    \STATE $lsp \leftarrow |p_{st}|$, where $p_{st}$ is the shortest pattern in $P$
+    \FOR{each $p \in P$}
+    \IF{$|p|=lsp$}
+    \STATE Mark $p^{+lsp}$ to be the pattern end
+    \ENDIF
+    \STATE Cut off $p^{+lsp}$ of $p$, and put $p^{+lsp}$ to $PF$
+    \ENDFOR
+    \STATE Remove repetitions in $PF$, and let $ndp \leftarrow |PF|$
+    \STATE $new\_node \leftarrow$ build an index structure daptively
+    based on $PF$
+    \IF{$(parent\_node.key = NULL)$}
+    \STATE $root \leftarrow new\_node$
+    \ELSE
+    \STATE Associate $new\_node$ with $parent\_node.key$ by a child pointer
+    \ENDIF
+    \STATE $TP \leftarrow \{(new\_node.pf,\, SP) \mid SP \subseteq P\; and
+    \ \forall \ p,\,q \in SP: p,\,q$ have the same length-$lsp$ prefix
+    $pf$ cut off\}\
+    \FOR{each $tp \in TP$}
+    \STATE $push\_queue(Q,\,tp)$
+    \ENDFOR
+    \ENDWHILE
+    \STATE
+    \RETURN $root$.
+  \end{algorithmic}
+\end{algorithm}
 
-\begin{tikzpicture}[scale=1.8]
-%\clip[draw] (0,0) circle [radius=0.5cm];
-\draw[ultra thin,red] (0,0) circle [ radius=1cm];
-\draw (-1.5,0)--(1.5,0);
-\draw (0,-1.5)--(0,1.5);
-\draw[rotate=45] (0,0) rectangle (0.5,0.5);
-\draw (0,0) rectangle (1,1);
-\draw (-1,-1) rectangle (-0.5,-0.5);
-\draw (3mm,0mm) arc [start angle=45, end angle=110, radius=3mm];
-\end{tikzpicture}
+In Algorithm \ref{alg:amt}, firstly, an empty queue $Q$ is created in
+line 1 to maintain the tuples. Then the tuple $(NULL, P)$ is inserted
+to $Q$ in line 2 by the function $push\_queue$ which always inserts an
+element to the end of the queue. Since $P$ is the initial pattern set
+here, there is no corresponding prefix key of $P$, and this is
+indicated by the $NULL$ component in the tuple. By this way, the
+creation of the root can be combined with other tree nodes in the
+following \textsf{while} loop.
 
-
+If $Q$ is not empty, the \textsf{while} loop body from line 4 to line
+20 constructs a tree node based on the first tuple in $Q$ which is
+fetched by the $pop\_queue(Q)$ function in line 5: the sub-pattern-set
+on which the tree node is based is assigned to $P$ and the
+corresponding key of $P$ in the parent node is denoted by
+$parent\_node.key$.  Further the $lsp$ of $P$ is computed in line
+6. In the inner \textsf{for} loop from line 7 to line 12, the
+length-$lsp$ prefix of each pattern in $P$ is cut off and collected to
+form the prefix set $PF$, and if a prefix is the last part of some
+pattern, it is marked as a pattern end. Line 13 remove the repetitions
+in $PF$, after that a new tree node is created adaptively based on
+$PF$ in line 14. The \textsf{if} statement in line 15 determines
+whether the newly created node is the root node or not: if the prefix
+component of the current tuple is $NULL$, then the new node is the
+root node as we just see in the last paragraph, otherwise, the new
+node is a child node which needs to be connected with the
+corresponding key in its parent node. Finally in line 20, the patterns
+left in $P$ are divided based on their lost prefixes, and the created
+tuples are inserted into the queue in order. Once there is no tuple
+left in $Q$, the whole \textsf{AMT} has been completely built, and the
+root of \textsf{AMT} is returned.
 
 \subsection{Matching the text}
 \label{sec:mp}
+ 
+Once the \textsf{AMT} has been constructed, it is used to search the
+patterns in the text string. The algorithm checks every position of
+the text string and each position requires a \textsf{matching round}
+of the algorithm to verify whether there are some patterns start at
+that position (several patterns may start at the same position). For
+each position $i$, the sub-string starting at $i$ in the text is
+compared segment by segment with the corresponding nodes in
+\textsf{AMT} from the root. If the text successfully matched a key
+that is marked as a pattern end in some node, the corresponding
+pattern is reported to be found at position $i$. However, once there
+is a mismatch or the comparing beyond the leaves of \textsf{AMT}, the
+current matching round is terminated and the algorithm forwards to the
+$i+1$ position of the text to start a new matching round. Whenever
+each position of the text has been checked, the whole algorithm is
+terminated.
+
+% the algorithm compare the sub-string starting at $i$
+% segmentedly with the \textsf{AMT} one node a time from the root
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.75\textwidth]{./eps/match}
+  \caption{Using AMT to locate patterns in the pattern set.}
+  \label{fig:2}
+\end{figure} 
+
+As an example, given the \textsf{AMT} built in the previous section
+and a text string $T$ waiting for match, and assuming the current
+matching position is $i$. The matching starts from the root of
+\textsf{AMT}: according to $key\_len(root)=2$, the same length
+sub-string $T[i,\,2]=aa$ in the text is retrieved as a target among
+the keys of root. The searching result is that the target string $aa
+\in root$ and it is also marked as a pattern end. Therefore the
+pattern $T[i,\,2]=aa$ (actually $p_6$ in $P$) is reported to be found
+at position $i$. Then the matching jumps to $node_1$ which is the
+child node of $root.aa$.
+
+At $node_1$, according to $key\_len(node_1)=6$, the sub-string
+$T[i+2,\,6]=e^6$ is retrieved in $node_1$. It is found that: $e^6 \in
+node_1$, but not marked as a pattern end. So the matching immediately
+jumps to $node_5$ --the child of $node_1.e^6$, with nothing reported.
+ 
+At $node_5$, since $T[i+8,\,5]=u^5 \in node_5$ and $u^5$ is also
+marked as a pattern end, the pattern (actually $p_4$ in $P$)
+$T[i,\,13]=a^2e^6u^5$ is reported to be found at $i$. Then the
+matching goes to the child of $node_5.u^6$ -- $node_{10}$.
+
+This time, since the corresponding sub-string $T[i+13,\,4]=sscc \notin
+node_{10}$, the current matching round at position $i$ is
+terminated. The processing moves to the next position $i+1$ and
+restart a new matching round from the root. Once all the positions of
+the text have been checked, the whole algorithm terminates.
+
+It can be seen that, for each matching round, it corresponds to a
+\textsf{matching path} in the \textsf{AMT} that consists of the nodes
+on which the comparing has been taken. In this example, the path is:
+$root \rightarrow node_1 \rightarrow node_5 \rightarrow node_{10}$,
+witch is indicated by the dashed arrows in Figure.
+
+%  % For each node of
+% \textsf{AMT}, its inner % keys have the same length, so we use
+% $lsp(node)$ to denote the length % of the keys in $node$.
+
+% For each position $i$ of the text, we use
+% \textsf{AMT} to check if there are some patterns begins at $i$. The
+% checking starts form the root node. First, we look for
+% $T[i,len(node)]$ in the keys of the $node$, if there is a match then
+% the checking passes to the child node of the corresponding key. Once
+% there is mismatch, it turns to the $i+1$ position of text and repeat
+% this procedure.
 
 
+
+\begin{algorithm}
+  \caption{Matching the text}
+  \label{alg:mc}
+  \begin{algorithmic}[1]
+    \REQUIRE ~~\\
+    The text string $T$, and the $AMT$ \\
+    \ENSURE ~~\\
+    The result set $R = \{(i,\,p) \mid 1 \le i \le |T|-lsp+1\ ,\ p \in P :
+    T[i,\,|p|] = p \}$
+    \STATE $i \leftarrow 1$
+    \STATE $m\_len \leftarrow 0$
+    \STATE $node \leftarrow root$ of AMT
+    \STATE
+    \WHILE{$i \le |T|-lsp+1 $}
+    %n\STATE $j \leftarrow i$
+    \WHILE{$node \neq NULL$ and $\exists key \in node: key =
+      T[i+m\_len, \, key\_len(node)]$}
+    \STATE $m\_len \leftarrow m\_len + key\_len(node)$
+    \IF{$key$ is marked as a pattern end}
+    \STATE put $(i,\,T[i,\,m\_len])$ in $R$
+    \ENDIF
+    \STATE $node \leftarrow$ the child of $node.key$
+    %\STATE $j \leftarrow j+node.lsp$
+    \ENDWHILE
+    \STATE $i \leftarrow i+1$
+    \STATE $node \leftarrow root$
+    \STATE $m\_len \leftarrow 0$
+    \ENDWHILE
+    \STATE
+    \RETURN $R$
+  \end{algorithmic}
+\end{algorithm}
+
+The pseudocode of the matching stage of the \textsf{ADMSM} algorithm
+is shown in \ref{alg:mc}. $i$ is the current matching position in
+text, $m\_len$ is the total length of the currently matched
+sub-strings in text in the current matching round and $node$ is the
+current node in the \textsf{AMT}. These three variables are initialize
+to $1$, $0$ and root of \textsf{AMT} respectively in line 1 to line 3.
+
+The major part of the pseudocode is a double \textsf{while} loop from
+line 5 to line 17. The outer \textsf{while} loop checks every position
+of the text to find whether there are patterns start at that
+position. For each position $i$, the inner \textsf{while} loop
+performs a matching round that compares the sub-string starting at $i$
+segment by segment with the corresponding nodes in \textsf{AMT}. The
+comparing starts form the root: if the corresponding sub-string of $T$
+successfully matches some key in the current node, the total matched
+length $m\_len$ is increased by the length of the keys in the
+node. Additionally, if the matched key is also marked as a pattern
+end, the matched pattern $T[i,\,m\_len]$ and its starting position $i$
+is inserted into the result set $R$. Next, the comparing transfers to
+the child of $node.key$ and makes that child node to be the current
+node. Once there is a mismatch or the current node goes beyond the
+leaf of \textsf{AMT}(that is $node \neq NULL$), the current matching
+round is terminated and a new matching round is performed at the
+position $i+1$ of $T$ with the variables $node$ and $m\_len$
+reset. Whenever every position of $T$ has been checked, the whole
+algorithm is terminated and the result set $R$ is returned.
+
+Note that, since each node in \textsf{AMT} has its own index
+structure, the search of the target string among the keys of node in
+line 6 uses the specific search routine according to the type of the
+index structure.
+
+\subsection{Adaptively build the tree node}
+\label{sec:ad}
+
+As we have seen in the preprocessing stage, each node of \textsf{AMT}
+is actually an index structure that holds the prefixes in the prefix
+set as keys. The type of the index structure is chosen adaptively
+according to the characteristic of the prefixes set. Since all the
+keys (prefixes) in the prefix set have the same length, the
+characteristic of the prefix set can be characterize mainly by two
+parameters: the \textsf{length} and \textsf{number} of the keys in the
+prefix set, and we use the notations $key\_len$ and $key\_num$ to
+denote these two parameters respectively. Note that, these two
+parameters are actually the $lsp$ and $ndp$ of the prefix set in the
+terms of the previous sections.
+
+In our implementation, three major types of index structures:
+\textsf{character map}, \textsf{string array} and \textsf{hash table}
+can be selected for prefix sets with different $key\_len$ and
+$key\_num$ combinations. These three structures will be then
+introduced in details.
+
+\subsubsection{Character map}
+
+If $key\_len=1$, which means all of the keys in the prefixes set are
+just single characters, the \textsf{character map} structure
+\ref{fig:character map} is adopted as an index structure. Further,
+there are four types of character maps with different capacities for
+different ranges of $key\_num$ (since $|\Sigma|=256$, there is $1 \le
+key\_num \le 256$).
+
+\begin{figure}[htbp]
+  \label{fig:character map}
+  \centering
+  \includegraphics[width=0.8\textwidth]{./eps/Maps}
+  \caption{The four types of character maps.}
+\end{figure}
+
+The four map types are illustrated in Figure 5 and are named according
+to their maximum capacity. Instead of using an array of (key, child
+pointer) pairs, the key part and the child pointer part are stored in
+separate arrays. This allows to keep the representation compact while
+permitting efficient search.
+
+\begin{itemize}
+\item \textbf{Map 4} (for $1 \le key\_num \le 4$): The smallest map
+type can store up to 4 keys and uses an array of length 4 for keys and
+another array of the same length for child pointers. The keys and
+pointers are stored at corresponding positions and the keys are sorted
+according to their ACSII values. Once the target character is found in
+the keys array, its child pointer can be find at the same position in
+the pointers array.
+
+\item \textbf{Map 16} (for $5 \le key\_num \le 16$): This map type is
+used for storing between 5 and 16 keys. Like Map 4, the keys and
+pointers are stored in separate arrays at corresponding positions, but
+both arrays have space for 16 entries. A target character can be
+retrieved efficiently by a binary search in the key array.
+
+\item \textbf{Map 48} (for $17 \le key\_num \le 48$): As the number of
+keys increases, searching the key array becomes expensive. Therefore,
+maps with more than 16 keys do not store the keys explicitly. Instead,
+a 256-element array is used, which can be indexed with the key byte
+(the ASCII value) directly. If a map has between 17 and 48 keys, this
+array stores only the \textsf{array indexes} (small integers in the
+range of $0 \sim 47$) into a second array which contains up to 48
+child pointers. This indirection saves space in comparison to 256
+pointers of 8 bytes (assuming in a x86\_64 architecture), because only
+one byte is required per array index.
+
+\item \textbf{Map 256} (for $49 \le key\_num \le 256$): The largest
+map type is simply an array of 256 pointers and is used for storing
+between 49 and 256 keys.  With this representation, the child node can
+be found very efficiently using a single lookup of the target byte in
+that array.  No additional indirection is necessary. If most entries
+are not empty, this representation is also very space efficient
+because only pointers need to be stored.
+
+\end{itemize}
+
+The pseudocode of retrieving in a node whose type is character map is
+depicted in Figure[].
+
+\begin{algorithm}
+  \caption{Retrieving in a node whose type is character map}
+  \label{alg:mc}
+  \begin{algorithmic}[1]
+    \REQUIRE ~~\\
+    A tree $node$ whose type is character map\\
+    The target character $t\_ch$.
+    \ENSURE ~~\\
+    The child node of $node.t\_ch$ (possibly NULL).
+    \STATE
+    \STATE $key\_num \leftarrow$ the number of keys in the character map
+    \STATE
+    \SWITCH{the type of the character map}
+    \CASE{Map 4}
+    \FOR{$i = 0$ to $key\_num-1$}
+    \IF{$keys[i]=t\_ch$}
+    \RETURN $child\_pointers[i]$
+    \ENDIF
+    \ENDFOR
+    \RETURN NULL
+    \ENDCASE
+    \STATE
+    \CASE{Map 16}
+    \STATE $low \leftarrow 0, high \leftarrow key\_num-1$
+    \WHILE{$low \le high$}
+    \STATE $mid = (low+high)/2$
+    \IF{$t\_ch=keys[mid]$}
+    \RETURN $child\_pointers[mid]$
+    \ELSIF{$t\_ch<keys[mid]$}
+    \STATE $high=mid-1$
+    \ELSE
+    \STATE $low=mid+1$
+    \ENDIF
+    \ENDWHILE
+    \RETURN NULL
+    \ENDCASE
+    \STATE
+    \CASE{Map 48}
+    \IF{$keys[t\_ch] \neq NULL$}
+    \RETURN $child\_pointers[keys[t\_ch]]$
+    \ELSE
+    \RETURN NULL
+    \ENDIF
+    \ENDCASE
+    \STATE
+    \CASE{Map 256}
+    \RETURN $child\_pointers[t\_ch]$
+    \ENDCASE
+    \ENDSWITCH
+  \end{algorithmic}
+\end{algorithm}
+
+\subsubsection{String array}
+\label{sec:string array}
+
+However, if $key\_len > 1$ and $key\_num$ is not very large, the
+\textsf{string array} is adopt as the index structure to hold the keys
+and their child pointers. Similar to character map, the keys are
+stored in lexicographical order in a separate keys array of size
+$key\_num \times key\_len$ in which each key takes $key\_len$ bytes,
+while the child pointers are stored at the corresponding positions in
+another pointers array of size $8 \times key\_num$ bytes. Figure
+\ref{fig:string array} depicts a string array structure with keys:
+$aaa$, $bbb$ and $ccc$. The keys and pointers array occupies 9 and 24
+bytes respectively, and the keys are sorted in lexicographical order.
+
+\begin{figure}[htbp]
+  \label{fig:string array}
+  \centering
+  \includegraphics[width=0.7\textwidth]{./eps/string_array}
+  \caption{The string array structure with three keys: $aaa,\, bbb,\, ccc$.}
+\end{figure}
+
+For efficiently retrieving, if $key\_num$ is very small, a naive
+linear search is used to retrieve the target string in the keys array,
+while for a larger $key\_num$, a more efficient binary search is
+adopt.  The pseudocode of retrieving in a node whose type is string
+array is depicted in Algorithm \ref{alg:string array}. For the string array
+whose $key\_num$ is less than a very small number $M$, the target
+string is compared sequentially with the keys in the keys array, and
+if the target string is finally found, the child pointer at the
+corresponding position in the pointers array is returned, otherwise,
+$NULL$ is returned. On the other hand, if $key\_num \geq M$, the
+target string is retrieved by a binary search from the middle key of
+the keys array. In practice, $M$ takes 5 is a appropriate choice.
+
+\begin{algorithm}
+  \caption{Retrieving in a node whose type is string array}
+  \label{alg:string array}
+  \begin{algorithmic}[1]
+    \REQUIRE ~~\\
+    A tree $node$ whose type is string array; \\
+    The target string $t\_str$.\\
+    \ENSURE ~~\\
+    The corresponding child node of $node.t\_str$ (possibly NULL).\\
+    \STATE
+    \STATE $key\_num \leftarrow$ the number of keys in $node$
+    \STATE $key\_len \leftarrow$ the length of keys in $node$
+    \STATE 
+    \IF{$key\_num < M$}
+    \STATE $i \leftarrow 0$
+    \WHILE{$i < key\_num$ and $keys[i \cdot key\_len,\, key\_len] \prec
+      t\_str$}
+    \STATE $i \leftarrow i+1$
+    \ENDWHILE
+    \IF{$i < key\_num$ and $keys[i \cdot key\_len,\,key\_len]=t\_str$}
+    \RETURN $child\_pointers[i]$
+    \ELSE
+    \RETURN NULL
+    \ENDIF
+    \ELSE
+    \STATE $low \leftarrow 0$, $high \leftarrow key\_num-1$
+    \WHILE{$low \le high$}
+    \STATE $mid \leftarrow (low+high)/2$
+    \IF{$t\_str = keys[mid \cdot key\_len,\, key\_len]$}
+    \RETURN $child\_pointers[mid]$
+    \ELSIF{$t\_str < keys[mid \cdot key\_len,\, key\_len]$}
+    \STATE $high \leftarrow mid - 1$
+    \ELSE
+    \STATE $low \leftarrow mid + 1$
+    \ENDIF
+    \ENDWHILE
+    \RETURN NULL
+    \ENDIF
+  \end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Hash table}
+\label{sec:hash table}
+
+In the case of $key\_len > 1$ and large $key\_num$, retrieving in the
+string array structure becomes inefficient even with a binary search,
+for this, a more fast (but heavy) index structure --- \textsf{hash
+table} is adopted to deal with large volume of keys. In our
+implementation, the hash table is an array of child pointers with each
+pointer initialized to $NULL$, in addition, a \textsf{string hash
+function} is employed. However, building the hash table is somewhat
+different from building the other index structures in that the hash
+table is built directly based on the sub-pattern-set instead of the
+prefix set.
+
+% Indeed, when computing $key\_num$, we
+% merely count rather than really constructing the prefix set and then
+% computing its $ndp$
+
+Given a sub-pattern-set $SP$, the $key\_len$ of $SP$ is just the $lsp$
+of $SP$, while $key\_num$ is the number of the distinct length-$lsp$
+prefixes of the patterns in $SP$ ( $key\_num$ is equal to the $ndp$ of
+the prefix set that is derived from $SP$).  The size of the hash table
+is determined by $key\_num$ and a given \textsf{load factor} (ratio of
+keys to slots) $lf$, that is, $table\_size = \lceil key\_num/lf
+\rceil$. For example, with the $key\_num$ of 1000 and a load factor of
+$70\%$, the table size is $\lceil 1000/0.7 \rceil = 1429$.
+
+Algorithm \ref{alg:hash} shows the pseudocode of building a hash table
+based on $SP$. $SP$ is firstly partitioned into small pattern sets by
+hashing: for each pattern $p \in SP$, its prefix $p^{+key\_len}$ is
+hashed by the string hash function to an integer $i$ between 0 and
+$table\_size-1$, and $p$ is associated with the $i$-th slot of the
+hash table. After all the patterns have been delivered to the
+corresponding slots, the patterns in $SP$ whose length-$key\_len$
+prefixes hashing to the same value are grouped together to form a
+small pattern set and associated with the corresponding slot of the
+hash table. (Note that, we do not cut off the prefixes of the patterns
+when partitioning $SP$.) Then, to address the collisions, for each
+non-$NULL$ slot of the hash table, a tree node is built based on the
+small pattern set associated with that slot as stated before. Hence,
+many tree nodes with various index types can be incorporated in one
+hash table.
+
+\begin{algorithm}
+  \caption{Building a hash table}
+  \label{alg:hash}
+  \begin{algorithmic}[1]
+    \REQUIRE ~~\\
+    The sub-pattern-set $SP$  \\
+    The load factor $lf$ \\
+    \ENSURE ~~\\
+    The hash table\\
+    \STATE
+    \STATE $key\_len \leftarrow lsp$ of $SP$
+    \STATE $ken\_num \leftarrow$ the number of distinct length-$lsp$
+    prefixes of patterns in $SP$
+    \STATE $table\_size \leftarrow \lceil key\_num/lf \rceil$
+    \STATE $hash\_table \leftarrow$ creat a hash table of length
+    $table\_size$
+    \STATE
+    \FOR{each $p \in SP$}
+    \STATE $i \leftarrow Hash(p^{+key\_len})$
+    \STATE associate $p$ with $hash\_table[i]$
+    \ENDFOR
+    \STATE
+    \FOR{$i = 0$ to $table\_size - 1$}
+    \IF{$hash\_table[i]\, \neq\, NULL$}
+    \STATE $SSP \leftarrow \{p\,|\,p\in SP\; and\; Hash(p^{+key\_len})=i\}$ 
+    \STATE adaptively build a tree node based on $SSP$
+    \ENDIF
+    \ENDFOR
+    \STATE
+    \RETURN $hash\_table$
+  \end{algorithmic}
+\end{algorithm}
+
+When retrieving a target string in the hash table, the hash value of
+that string is used as an index into the table. If the corresponding
+slot is $NULL$, which means the target string fails to match any key
+in hash table, the algorithm moves immediately to the next position of
+the text and restart a new matching round; otherwise, the target is
+retrieved again in the child node associated with that slot.
+
+The choice of the hash function can have a significant effect on the
+performance of retrieving. In fact, at the beginning of the matching
+stage, the hash function is selected randomly from a \textsf{hash
+function family $H$}. The hash function adopt in our implementation is
+the \textsf{shift-add-xor} hash family from \cite, which is claimed to
+be satisfied with the above four properties. The form of the hash
+function family is shown in Algorithm \ref{alg:hash fun}.
+
+%  which should satisfy the following properties:
+
+% \begin{itemize}
+% \item \textbf{Uniformity.} If a hash function is uniform then the
+% probability of an arbitrary key hashing to a given slot is
+% $1/table\_size$, independent of the hash values of other keys. In
+% practical terms, uniformity means that for a given load factor average
+% access time is roughly constant, regardless of table size.
+
+% \item \textbf{Universality.} A hash function family $H$ is universal
+% if, for a given $table\_size$ and any pair of valid keys $k_1$ and
+% $k_2$, the number of hash functions $h \in H$ such that $h(k_1) =
+% h(k_2)$ is less than or equal to $|H|/table\_size$. That is, for a
+% randomly-chosen hash function the probability that $k_1$ and $k_2$
+% hash to the same value is less than or equal to $1/table\_size$.
+
+% In practice universality means that, with high probability, a
+% randomly-chosen hash function will perform well. For any hash function
+% it is true that there exist sets of keys that all hash to the same
+% value and no hash function is invulnerable to a deliberate attempt to
+% identify such a set of keys. However, if a hash function family is
+% universal and the functions in the family are uniform then it is
+% guaranteed that the family cannot be subjected to such attack.
+
+% \item \textbf{Applicability.} At a more pragmatic level, hash
+% functions should be applicable in all circumstances where hashing
+% might be used. A function that is limited to a few table sizes, can
+% only hash strings of a certain length, is not as valuable as functions
+% without such restrictions.
+
+% \item \textbf{Efficiency}. The primary advantage of hashing as an
+% access method is its speed: given $ndp$ keys and a table of $O(ndp)$
+% size, the search time is $O(1)$, assuming a hash function with time
+% complexity $O(1)$. Hash functions should also be small; in many
+% applications there is little advantage to a function that is as large
+% as the key set.
+
+
+\begin{algorithm}
+  \caption{The \textsf{shift-add-xor} hash family}
+  \label{alg:hash fun}
+  \begin{algorithmic}[1]
+    \REQUIRE ~~\\
+    The string $c_1c_2 \dots c_m$  \\
+    The $table\_size$  \\
+    \ENSURE ~~\\
+    The hash value of $c_1c_2 \dots c_m$
+    \STATE 
+    \STATE $value \leftarrow seed$
+    \FOR{$i=1$ to $m$}
+    \STATE $value \leftarrow value \oplus (value << L + value >> R + c_i)$
+    \ENDFOR
+    \RETURN $value$ mod $table\_size$
+  \end{algorithmic}
+\end{algorithm}
+
+Initially, a randomly positive integer $seed$ is assigned to the hash
+$value$ (note that, different seeds give different hash functions and
+hence a hash function family is defined). Then the hash value is
+computed gradually from each character of the input string by using a
+combinations of the \textsf{add, shift, xor} operators: $\oplus$ is
+the \textsf{xor} operator, and $value << \;L$ means shift the $value$
+to the left $L$ bits, while $c_i$ is the ASCII value of the $i$-th
+character of the input string. We use $L=5$ and $R=2$ in our
+experiment, which is tested to provide greater likelihood of a uniform
+distribution of hash values.
+
+%\end{itemize}
 
 \end{document}
 
-%  LocalWords:  aa
+
+
+% which means the sub-pattern-set is actually the
+% original whole pattern set)
+
+% \begin{tikzpicture}[scale=1.8]
+
+% %\filldraw[fill=red, draw=green] (0,0) circle [ radius=1cm];
+% \shade[left color=red, right color=black] (0,0) rectangle (1,1);
+% \shadedraw[ball color=yellow, draw=balck] (1.5,0.5) circle [radius=0.5];
+% \draw (-1.5,0)--(1.5,0);
+% \draw (0,-1.5)--(0,1.5);
+% \draw[rotate=45] (0,0) rectangle (0.5,0.5);
+% \draw (0,0) rectangle (1,1);
+% \fill[green!20!white] (0,0) -- (1cm,0) -- arc[start angle=0, end angle=30, radius=1cm]--(0cm,0cm);
+% \draw (-1,-1) rectangle (-0.5,-0.5);
+% \draw (3mm,0mm) arc [start angle=45, end angle=110, radiu
+% s=3mm];$PF$$PF$$PF$
+% \end{tikzpicture}
