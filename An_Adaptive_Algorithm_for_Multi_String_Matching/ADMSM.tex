@@ -27,66 +27,38 @@
 % \maketitle
 
 \begin{document}
-\section{Preliminaries}
+\section{Notations}
 \label{sec:stucture}
 
-Let $\Sigma$ be an \emph{alphabet} consists of a finite number of
+Let $\Sigma$ be an \textsf{alphabet} consists of a finite number of
 character symbols. (In this paper we will mainly focus on the case
 that $\Sigma$ is the ASCII character set, where $|\Sigma| = 256$ and
 each character requires only one byte of memory.) Given the alphabet
-$\Sigma$, a \emph{string} as well as its \emph{substring} over
-$\Sigma$ can be defined as:
+$\Sigma$, a \textsf{string} as well as its \textsf{substring} over
+$\Sigma$ can be defined as:\\
+\\
+\textbf{Definition 1.} A \textsf{string} of length $n$ over $\Sigma$ is
+denoted by $S = c_1c_2..c_n$, where $S[i] = c_i \in \Sigma$ $(1 \leq i
+\leq n)$, and the length of $S$ is denoted by $|S|$. The
+\textsf{substring} of $S$ which starts at position $i$ and has
+length $len$ is denoted by $S[i,\,len]$.\\
+\\
+Another important concept is the \textsf{prefix}, which is a special
+substring of a given string:\\
+\\
+\textbf{Definition 2.} The length-$m$ \textsf{prefix} of $S$ denoted by
+$S^{+m}$ is the substring that consists of the first $m$ characters of
+$S$, that is $S^{+m}=S[1,\,m]$.  While the notation $S^{-m}$ is used to
+denote the substring left after discarding the first $m$ characters of $S$, that is $S^{-m} = S[m+1,\,|S|-m]$.\\
+\\
+The \textsf{multi-string matching} problem can be formally defined as follows: \\
+\\
+\textbf{Definition 3.} Given a text string $T$ and a pattern set
+$P=\{p_1,\,p_2,\,\dots,\,p_k\}$ where $p_i$ is a string over $\Sigma$.
+The \textsf{multi-string matching} is to find all occurrences of every
+pattern of $P$ in $T$, more specifically, to find the set $R = \{(i,\,
+p_j)\;|\; p_j \in P\; and\; T[i,\,|p_j|]=p_j\}$.
 
-\begin{mydef} A string $T$ over $\Sigma$ is a sequence consisting of a
-finite number of characters from $\Sigma$. Particularly, a string of
-length $n$ over $\Sigma$ is denoted by $T = t_0t_1..t_{n-1}$, where
-$T[i] = t_i \in \Sigma$ $(0 \leq i \leq n-1)$. A substring of $T$ is a
-sequence consists of any consecutive characters of $T$. A substring of
-$T$ which is starting at position $i$ and ending at position $j$ is
-denoted by $T[i,j]$.
-\end{mydef}
-
-The basic concepts in suffixes sorting are the \emph{suffixes} and
-\emph{prefixes}, which are special substrings of a given string:
-
-\begin{mydef} For a string $T = t_0t_1..t_{n-1}$, the suffix of T that
-starts at position $i(0 \leq i \leq n-1)$ is $T[i,n-1]$, which is
-denoted by $S_i(T)$. The length-h prefix of $T$ is $T[0,h-1]$, and is
-denoted by $P_h(T)$.
-\end{mydef}
-
-In this paper, whenever we refer to some suffixes, they are related to
-the \emph{same} string, so the notation $S_i(T)$ can be abbreviated to
-$S_i$ without ambiguity. To ensure that no suffix is a prefix of
-another suffix, a special terminal character '\$' is always appended
-to the rear of $T$, and '\$' is defined to be smaller than any
-character in $\Sigma$.
-
-We use the notation $S_i \prec S_j$ to denote that $S_i$ is
-\emph{lexicographically smaller} than $S_j$. And our ultimate goal is
-to sort all the suffixes of a string in ascending lexicographical
-order to form a \emph{suffix array}:
-
-\begin{mydef}
-For a string $T = t_0t_1..t_{n-1}\$$, the suffix array of $T$ is an
-array $SA[0 \dots n]$ consisting of a permutation of the integers $0,
-1, \dots, n$ such that for all $0 \leq i < j \leq n$, $S_{SA[i]} \prec
-S_{SA[j]}$ where $SA[i]$ is the i-th element of the array SA.
-\end{mydef}
-
-Since a suffix can be uniquely determined by its starting position,
-only the starting position numbers of the suffix are stored in SA.
-
-For simplicity, the term \emph{order} (of suffixes) is used to
-indicate the \emph{lexicographical order} unless explicitly stated. By
-contrast, we can also define the \emph{h-order} of suffixes by just
-comparing their first $h$ characters: $S_i$ is said to be
-\emph{h-smaller} than $S_j$ if and only if $P_h(S_i) \prec P_h(S_j)$,
-and this relation is denoted by $S_i \prec_h S_j$.  The notations
-$=_h$ and $\preceq_h$ can be defined in a similar way.  Obviously,
-there is: $S_i \prec_h S_j \Longrightarrow S_i \prec S_j$. If all the
-suffixes are sorted according to their first $h$ characters, they are
-called \emph{in h-order}.
 
 \section{The ADMSM Algorithm}
 \label{sec:ADSM}
@@ -144,9 +116,10 @@ bb,\, cc\}$, and hence $ndp = |PF| = 3$.
 
 Then an index structure (actually the root of the \textsf{AMT}) is
 built based on $PF$ to hold its prefixes. Each prefix serves as a
-\textsf{key} in the index structure and may have a branch to the child
-node. As will be seen later, the type of the index structure is
-selected adaptively according to the characteristic of $PF$.
+\textsf{key} in the index structure and have a pointer to the child
+node (initialized to $NULL$). As will be seen later, the type of the
+index structure is selected adaptively according to the characteristic
+of $PF$.
 
 % % We use the notation $p_n^{-m}$ to denote the pattern $p_n$ that has
 % % its length-$m$ prefix cut off
@@ -175,44 +148,46 @@ three child nodes).
 Note that, the shortest pattern $p_6$ has disappeared in the
 sub-pattern-sets, since after cutting the length-2 prefix of $p_6$,
 there is nothing left. In order to mark the end of a pattern, once the
-last part of the pattern has been cut off, that part is marked with an
-asterisk to in the corresponding tree node. It can be seen that, any
-path from the root to a key that is marked as a pattern end represents
-a complete pattern. Therefore, the patterns are stored implicitly in
-the \textsf{AMT} and can be reconstructed from paths ended with an
-asterisk.
+last part of the pattern has been cut off, that last part is marked
+with an asterisk to in the corresponding tree node. It can be seen
+that, any path from the root to a key that marked as a pattern end
+represents a complete pattern. Therefore, the patterns are stored
+implicitly in the \textsf{AMT} and can be reconstructed from paths
+ended with an asterisk.
 
-The same procedure is repeated on each of the sub-pattern-sets in the
-tuples. As a further example, $SP_1$ is processed. Since $lsp =
-|p_7^{-2}| = 6$, the length-$6$ prefix of each pattern in $SP_1$ is
-cut off to form \(PF_1 = \{(p_1^{-2})^{+6},\, (p_2^{-2})^{+6},\,
-(p_3^{-2})^{+6},\, (p_4^{-2})^{+6},\, (p_5^{-2})^{+6},\,
-(p_7^{-2})^{+6}\}\). After discarding the duplicates in $PF_1$, only
-three distinct prefixes are left: $PF_1 = \{a^6,\, e^6,\, b^6\}$ (we
-use $c^n$ to denote that the character \emph{c} appears $n$ times).  A
-new index structure $node_1$ is built adaptively based on $PF_1$ to
-hold its prefixes as keys, and then $node_1$ is connect to the key
-$aa$ in the root, which makes it to be the first child of the
-root. Again the patterns left in $SP_1$ are grouped based on their
-lost length-6 prefixes, which formed three new tuples: $tp_4 =
-(node_1.a^6,\; SP_4=\{p_1^{-8}\})$, $tp_5 = (node_1.e^6,\;
+The same procedure is repeated upon each of the sub-pattern-sets in
+the tuples. As a further example, $SP_1$ of $tp_1$ is processed. Since
+$lsp = |p_7^{-2}| = 6$, the length-$6$ prefix of each pattern in
+$SP_1$ is cut off to form $\(PF_1 = \{(p_1^{-2})^{+6},\,
+(p_2^{-2})^{+6},\, (p_3^{-2})^{+6},\, (p_4^{-2})^{+6},\,
+(p_5^{-2})^{+6},\, (p_7^{-2})^{+6}\}\)$. After discarding the
+duplicates in $PF_1$, only three distinct prefixes are left: $PF_1 =
+\{a^6,\, e^6,\, b^6\}$ (we use $c^n$ to denote that the character
+\emph{c} appears $n$ times).  A new index structure $node_1$ is built
+adaptively based on $PF_1$ to hold its prefixes as keys, and then
+according to the first component of $tp_1$, $node_1$ is associated
+with the key $aa$ in the root ($root.aa$), which makes it to be the
+first child of the root. Again the patterns left in $SP_1$ are grouped
+based on their lost length-6 prefixes, which formed three new tuples:
+$tp_4 = (node_1.a^6,\; SP_4=\{p_1^{-8}\})$, $tp_5 = (node_1.e^6,\;
 SP_5=\{p_2^{-8},\, p_3^{-8},\, p_4^{-8}\})$ and $tp_6 = (node_1.b^6,\;
 SP_6=\{p_5^{-8}\})$.
 
 During the construction of \textsf{AMT}, a \textsf{breadth-first}
 strategy is used to process the sub-pattern-sets and create tree nodes
 (which means the next sub-pattern-set to be processed is $SP_2$ rather
-than $SP_4$). In order to trace the order in which the
+than $SP_4$). For the purpose of tracing the order in which the
 sub-pattern-sets are processed, a \textsf{first-in-first-out} queue is
 employed to maintain the tuples: the tuple at the beginning of the
 queue contains the sub-pattern-set that will be processed next, while
 the newly created tuples are inserted to the end of the queue in
 order. In our example, the root is built initially. Then $tp_1$,
-$tp_2$ and $tp_3$ are inserted to the queue. Next $SP_1$ is processed
-and the newly created tuples $tp_4$, $tp_5$ and $tp_6$ are inserted to
-the end of the queue in order. Subsequently, $SP_2$, $SP_3$, $SP_4$,
-$SP_5$, $SP_6$, $\dots$ are processed in sequence. Once there are no
-tuples left in the queue, the whole \textsf{AMT} is constructed.
+$tp_2$ and $tp_3$ are inserted to the queue. Next $SP_1$ of $tp_1$ is
+processed and the newly created tuples $tp_4$, $tp_5$ and $tp_6$ are
+inserted to the end of the queue in order. Subsequently, $SP_2$,
+$SP_3$, $SP_4$, $SP_5$, $SP_6$, $\dots$ are processed in
+sequence. Once there are no tuples left in the queue, the whole
+\textsf{AMT} is constructed.
 
 \begin{algorithm}
   \caption{Building the Adaptive Match Tree}
@@ -220,7 +195,7 @@ tuples left in the queue, the whole \textsf{AMT} is constructed.
   \begin{algorithmic}[1]
     \REQUIRE The pattern set $P$
     \ENSURE The AMT
-    \STATE $Q \leftarrow$ Create an empty queue
+    \STATE $Q \leftarrow$ create an empty queue
     \STATE $push\_queue((NULL,\,P),\; Q)$
     \STATE
     \WHILE{$Q \neq \emptyset$}
@@ -228,17 +203,17 @@ tuples left in the queue, the whole \textsf{AMT} is constructed.
     \STATE $lsp \leftarrow |p_{st}|$, where $p_{st}$ is the shortest pattern in $P$
     \FOR{each $p \in P$}
     \IF{$|p|=lsp$}
-    \STATE Mark $p^{+lsp}$ to be the pattern end
+    \STATE mark $p^{+lsp}$ to be the pattern end
     \ENDIF
-    \STATE Cut off $p^{+lsp}$ of $p$, and put $p^{+lsp}$ to $PF$
+    \STATE cut off $p^{+lsp}$ of $p$, and put $p^{+lsp}$ to $PF$
     \ENDFOR
-    \STATE Remove repetitions in $PF$, and let $ndp \leftarrow |PF|$
+    \STATE remove repetitions in $PF$, and let $ndp \leftarrow |PF|$
     \STATE $new\_node \leftarrow$ build an index structure daptively
     based on $PF$
     \IF{$(parent\_node.key = NULL)$}
     \STATE $root \leftarrow new\_node$
     \ELSE
-    \STATE Associate $new\_node$ with $parent\_node.key$ by a child pointer
+    \STATE associate $new\_node$ with $parent\_node.key$ by a child pointer
     \ENDIF
     \STATE $TP \leftarrow \{(new\_node.pf,\, SP) \mid SP \subseteq P\; and
     \ \forall \ p,\,q \in SP: p,\,q$ have the same length-$lsp$ prefix
@@ -252,14 +227,15 @@ tuples left in the queue, the whole \textsf{AMT} is constructed.
   \end{algorithmic}
 \end{algorithm}
 
-In Algorithm \ref{alg:amt}, firstly, an empty queue $Q$ is created in
-line 1 to maintain the tuples. Then the tuple $(NULL, P)$ is inserted
-to $Q$ in line 2 by the function $push\_queue$ which always inserts an
-element to the end of the queue. Since $P$ is the initial pattern set
-here, there is no corresponding prefix key of $P$, and this is
-indicated by the $NULL$ component in the tuple. By this way, the
-creation of the root can be combined with other tree nodes in the
-following \textsf{while} loop.
+The pseudocode of building the \textsf{AMT} from a pattern set is
+illustrated in Algorithm \ref{alg:amt}. Firstly, an empty queue $Q$ is
+created in line 1 to maintain the tuples. Then the tuple $(NULL, P)$
+is inserted to $Q$ in line 2 by the function $push\_queue$ which
+always inserts an element to the end of the queue. Since $P$ is the
+initial pattern set here, there is no corresponding prefix key of $P$,
+and this is indicated by the $NULL$ component in the tuple. By this
+way, the creation of the root can be combined with other tree nodes in
+the following \textsf{while} loop.
 
 If $Q$ is not empty, the \textsf{while} loop body from line 4 to line
 20 constructs a tree node based on the first tuple in $Q$ which is
@@ -275,13 +251,13 @@ in $PF$, after that a new tree node is created adaptively based on
 $PF$ in line 14. The \textsf{if} statement in line 15 determines
 whether the newly created node is the root node or not: if the prefix
 component of the current tuple is $NULL$, then the new node is the
-root node as we just see in the last paragraph, otherwise, the new
-node is a child node which needs to be connected with the
-corresponding key in its parent node. Finally in line 20, the patterns
-left in $P$ are divided based on their lost prefixes, and the created
-tuples are inserted into the queue in order. Once there is no tuple
-left in $Q$, the whole \textsf{AMT} has been completely built, and the
-root of \textsf{AMT} is returned.
+root node as stated in the last paragraph, otherwise, the new node is
+a child node which needs to be associated with the corresponding key
+in its parent node. Finally in line 20, the patterns left in $P$ are
+divided based on their lost prefixes, and the created tuples are
+inserted to the end of the queue in order. Once there is no tuple left
+in $Q$, the whole \textsf{AMT} has been completely built, and the root
+of \textsf{AMT} is returned.
 
 \subsection{Matching the text}
 \label{sec:mp}
@@ -504,7 +480,7 @@ because only pointers need to be stored.
 \end{itemize}
 
 The pseudocode of retrieving in a node whose type is character map is
-depicted in Figure[].
+depicted in Figure \ref{fig:character map}.
 
 \begin{algorithm}
   \caption{Retrieving in a node whose type is character map}
@@ -581,16 +557,19 @@ bytes respectively, and the keys are sorted in lexicographical order.
 
 For efficiently retrieving, if $key\_num$ is very small, a naive
 linear search is used to retrieve the target string in the keys array,
-while for a larger $key\_num$, a more efficient binary search is
-adopt.  The pseudocode of retrieving in a node whose type is string
-array is depicted in Algorithm \ref{alg:string array}. For the string array
-whose $key\_num$ is less than a very small number $M$, the target
-string is compared sequentially with the keys in the keys array, and
-if the target string is finally found, the child pointer at the
-corresponding position in the pointers array is returned, otherwise,
-$NULL$ is returned. On the other hand, if $key\_num \geq M$, the
-target string is retrieved by a binary search from the middle key of
-the keys array. In practice, $M$ takes 5 is a appropriate choice.
+while for a larger $key\_num$, a more efficient (but complicated)
+binary search is adopt.  The pseudocode of retrieving in a node whose
+type is string array is depicted in Algorithm \ref{alg:string array},
+note that, we use the notation $S_i \prec S_j$ to denote that string
+$S_i$ is \textsf{lexicographically smaller} than string $S_j$. For the
+string array whose $key\_num$ is less than a very small number $M$,
+the target string is compared sequentially with the keys in the keys
+array, and if the target string is finally found, the child pointer at
+the corresponding position in the pointers array is returned,
+otherwise, $NULL$ is returned. On the other hand, if $key\_num \geq
+M$, the target string is retrieved by a binary search from the middle
+key of the keys array. In practice, $M$ takes 5 is a appropriate
+choice.
 
 \begin{algorithm}
   \caption{Retrieving in a node whose type is string array}
@@ -701,7 +680,8 @@ hash table.
     \FOR{$i = 0$ to $table\_size - 1$}
     \IF{$hash\_table[i]\, \neq\, NULL$}
     \STATE $SSP \leftarrow \{p\,|\,p\in SP\; and\; Hash(p^{+key\_len})=i\}$ 
-    \STATE adaptively build a tree node based on $SSP$
+    \STATE $hash\_table[i] \leftarrow$ adaptively build a tree node based on $SSP$ as shown in the
+    \textsf{while} loop of Algorithm \ref{alg:amt}
     \ENDIF
     \ENDFOR
     \STATE
